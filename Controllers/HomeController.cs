@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Omni_MVC_2.Models;
 
@@ -6,11 +7,14 @@ namespace Omni_MVC_2.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly ILogger<HomeController> _logger;
-
-        public HomeController(ILogger<HomeController> logger)
+        readonly IValidator<UserProfileInputVM> _validator;
+        readonly ILogger<HomeController> _logger;
+        readonly IWebHostEnvironment _env;
+        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment env, IValidator<UserProfileInputVM> validator)
         {
             _logger = logger;
+            _env = env;
+            _validator = validator;
         }
 
         public IActionResult Index()
@@ -25,6 +29,10 @@ namespace Omni_MVC_2.Controllers
 
         public IActionResult About()
         {
+            string title = "About";
+            string message = "This is the About page for our MVC app.";
+            if (_env.IsDevelopment()) message = "DEVELOPER MODE";
+
             /// Type-Unsafe
             //ViewData["Title"] = "About";
             //ViewData["Message"] = "This is the About page for our MVC app.";
@@ -32,8 +40,8 @@ namespace Omni_MVC_2.Controllers
             /// Type-Safe
             var vm = new AboutVM
             {
-                Title = "About",
-                Message = "This is the About page for our MVC app."
+                Title = title,
+                Message = message,
             };
             return View(vm);
         }
@@ -52,6 +60,27 @@ namespace Omni_MVC_2.Controllers
             return View(vm);
         }
 
+        [HttpGet]
+        public IActionResult CreateUser()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public IActionResult CreateUser(UserProfileInputVM input)
+        {
+            var validationResult = _validator.Validate(input);
+
+            if (!validationResult.IsValid)
+            {
+                foreach (var failure in validationResult.Errors) ModelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
+
+                return View(input);
+            }
+
+            ViewBag.Message = $"User {input.UserName} created successfully!";
+            return View("Success");
+        }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()

@@ -1,4 +1,8 @@
-﻿namespace Omni_MVC_2.Extensions
+﻿using FluentValidation;
+using Omni_MVC_2.Services;
+using Omni_MVC_2.Validators;
+
+namespace Omni_MVC_2.Extensions
 {
     public static class ConfigDI
     {
@@ -7,14 +11,22 @@
             // Add MVC
             services.AddControllersWithViews();
 
-            // Register any custom services
+            // Add FluentValidations
+            services.AddValidatorsFromAssemblyContaining<UserProfileInputValidator>();
+
+            // Add Host Services
             services.AddScoped<IMyScopedService, MyScopedService>();
 
+            // Add Business Layer
+            services.AddBusinessLayer(configuration);
+
+            Console.WriteLine($"[Info]----->{nameof(RegisterServices)} service added");
             return services;
         }
     }
 
-    // Example service
+    #region Host Services
+    // Host Services eg Logging
     public interface IMyScopedService
     {
         string GetMessage();
@@ -22,6 +34,7 @@
 
     public class MyScopedService : IMyScopedService
     {
-        public string GetMessage() => "Hello from MyScopedService";
+        public string GetMessage() => "Hello from custom controller non-business service";
     }
+    #endregion Host Services
 }
