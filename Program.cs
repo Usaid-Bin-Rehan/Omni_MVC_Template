@@ -10,5 +10,5 @@ builder.Services.RegisterServices(builder.Configuration);
 //});
 #endregion Disabled Kestrel Hosting for IIS-Server Reverse-Proxy
 var app = builder.Build();
-app.ConfigurePipeline();
+app.UseServices();
 app.Run();

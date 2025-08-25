@@ -87,5 +87,31 @@ namespace Omni_MVC_2.Controllers
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
+
+        [HttpGet]
+        public IActionResult Login()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public IActionResult Login(string username, string password)
+        {
+            HttpContext.Session.SetString("Username", username);
+            return RedirectToAction("Dashboard");
+        }
+
+        [HttpGet]
+        public IActionResult Dashboard()
+        {
+            var username = HttpContext.Session.GetString("Username");
+            if (string.IsNullOrEmpty(username))
+            {
+                return RedirectToAction("Login");
+            }
+
+            ViewData["Username"] = username;
+            return View();
+        }
     }
 }

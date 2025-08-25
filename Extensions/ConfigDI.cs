@@ -8,14 +8,30 @@ namespace Omni_MVC_2.Extensions
     {
         public static IServiceCollection RegisterServices(this IServiceCollection services, IConfiguration configuration)
         {
+
+            #region Session Management
+
+            //services.AddDistributedMemoryCache();
+
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = "localhost:6379";
+                options.InstanceName = "MyApp:";
+            });
+
+            services.AddSession(options =>
+            {
+                options.IdleTimeout = TimeSpan.FromMinutes(20);
+                options.Cookie.HttpOnly = true;
+                options.Cookie.IsEssential = true;
+            });
+            #endregion Session Management
+
             // Add MVC
             services.AddControllersWithViews();
 
             // Add FluentValidations
             services.AddValidatorsFromAssemblyContaining<UserProfileInputValidator>();
-
-            // Add Host Services
-            services.AddScoped<IMyScopedService, MyScopedService>();
 
             // Add Business Layer
             services.AddBusinessLayer(configuration);
@@ -24,17 +40,4 @@ namespace Omni_MVC_2.Extensions
             return services;
         }
     }
-
-    #region Host Services
-    // Host Services eg Logging
-    public interface IMyScopedService
-    {
-        string GetMessage();
-    }
-
-    public class MyScopedService : IMyScopedService
-    {
-        public string GetMessage() => "Hello from custom controller non-business service";
-    }
-    #endregion Host Services
 }

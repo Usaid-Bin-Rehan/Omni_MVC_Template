@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection.Extensions;
+using Omni_MVC_2.Areas.Products.Services;
 using Omni_MVC_2.DataAccess;
-using Omni_MVC_2.Services.ItemService;
+using Omni_MVC_2.Services.HomeService;
 
 namespace Omni_MVC_2.Services
 {
@@ -18,7 +19,8 @@ namespace Omni_MVC_2.Services
 
         public static IServiceCollection AddServices(this IServiceCollection services)
         {
-            services.TryAddScoped<IItemService, OmniItemService>();
+            services.TryAddScoped<IHomeService, OmniHomeService>();
+            services.TryAddScoped<IProductService, OmniProductService>();
 
             Console.WriteLine($"[Info]----->{nameof(AddServices)} service added");
             return services;
