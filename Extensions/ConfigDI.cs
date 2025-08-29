@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using Omni_MVC_2.Extensions.Filters;
 using Omni_MVC_2.Services;
 using Omni_MVC_2.Validators;
 
@@ -27,8 +28,11 @@ namespace Omni_MVC_2.Extensions
             });
             #endregion Session Management
 
-            // Add MVC
-            services.AddControllersWithViews();
+            // Add MVC with Global Filters
+            services.AddControllersWithViews(options =>
+            {
+                options.Filters.Add<LogExecutionTimeFilter>();
+            });
 
             // Add FluentValidations
             services.AddValidatorsFromAssemblyContaining<UserProfileInputValidator>();

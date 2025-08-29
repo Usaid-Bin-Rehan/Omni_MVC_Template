@@ -1,0 +1,10 @@
+﻿@model Omni_MVC_2.Areas.Products.Models.FileUploadModel
+<form asp-action="Upload" method="post" enctype="multipart/form-data">
+	<input asp-for="File" type="file" />
+	<button type="submit">Upload</button>
+</form>
+
+@if (ViewBag.Message != null)
+{
+	<p>@ViewBag.Message</p>
+}

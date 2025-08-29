@@ -1,0 +1,19 @@
+﻿@model List<string>
+
+<h2>Uploaded Files</h2>
+
+@if (!Model.Any())
+{
+    <p>No files uploaded yet.</p>
+}
+else
+{
+    <ul>
+        @foreach (var file in Model)
+        {
+            <li>
+                <a href="@Url.Content($"~/uploads/{file}")" target="_blank">@file</a>
+            </li>
+        }
+    </ul>
+}
