@@ -6,7 +6,7 @@ namespace Omni_MVC_2.Extensions.Filters
     public class LogExecutionTimeFilter : IActionFilter
     {
         private readonly ILogger<LogExecutionTimeFilter> _logger;
-        private Stopwatch _stopwatch;
+        private Stopwatch? _stopwatch;
         public LogExecutionTimeFilter(ILogger<LogExecutionTimeFilter> logger)
         {
             _logger = logger;
@@ -19,8 +19,8 @@ namespace Omni_MVC_2.Extensions.Filters
 
         public void OnActionExecuted(ActionExecutedContext context)
         {
-            _stopwatch.Stop();
-            _logger.LogInformation($"Action {context.ActionDescriptor.DisplayName} took {_stopwatch.ElapsedMilliseconds} ms");
+            _stopwatch?.Stop();
+            _logger.LogInformation("Action {ActionName} took {ElapsedMilliseconds} ms", context.ActionDescriptor.DisplayName, _stopwatch?.ElapsedMilliseconds);
         }
     }
 }
