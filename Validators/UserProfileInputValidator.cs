@@ -1,9 +1,10 @@
 ﻿using FluentValidation;
 using Omni_MVC_2.Models;
+using Omni_MVC_2.Utilities.ValidatorUtilities;
 
 namespace Omni_MVC_2.Validators
 {
-    public class UserProfileInputValidator : AbstractValidator<UserProfileInputVM>
+    public class UserProfileInputValidator : ModelValidator<UserProfileInputVM>
     {
         public UserProfileInputValidator()
         {

@@ -1,7 +1,8 @@
 ﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Omni_MVC_2.Extensions.Filters;
 using Omni_MVC_2.Services;
-using Omni_MVC_2.Validators;
+using Omni_MVC_2.Utilities.ValidatorUtilities;
 
 namespace Omni_MVC_2.Extensions
 {
@@ -32,10 +33,11 @@ namespace Omni_MVC_2.Extensions
             services.AddControllersWithViews(options =>
             {
                 options.Filters.Add<LogExecutionTimeFilter>();
+
             });
 
             // Add FluentValidations
-            services.AddValidatorsFromAssemblyContaining<UserProfileInputValidator>();
+            services.AddValidatorsFromAssembly(typeof(ModelValidator<>).Assembly);
 
             // Add Business Layer
             services.AddBusinessLayer(configuration);
