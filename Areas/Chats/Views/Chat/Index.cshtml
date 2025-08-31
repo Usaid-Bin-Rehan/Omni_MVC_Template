@@ -1,0 +1,110 @@
+﻿@model List<Omni_MVC_2.Areas.Chats.Models.ChatMessageVM>
+@{
+    ViewData["Title"] = "Chat";
+    Layout = "_Layout"; // or set to null if you want a bare page
+}
+
+<link rel="stylesheet" href="~/css/chat.css" /> <!-- optional: point to CSS or use the block below -->
+
+<div class="chat-container" style="max-width:900px;margin:1.5rem auto;">
+    <h2>AI Chat</h2>
+
+    <div id="messages" style="min-height:300px;border:1px solid #ddd;padding:1rem;overflow:auto;background:#fff;">
+        @foreach (var m in Model)
+        {
+            var cls = m.Role?.ToLowerInvariant() ?? "assistant";
+            <div class="message @cls" style="margin-bottom:0.75rem;">
+                <strong>@m.Role:</strong>
+                <div style="white-space:pre-wrap;margin-top:0.25rem;">@Html.Raw(Html.Encode(m.Content))</div>
+            </div>
+        }
+    </div>
+
+    <form id="chatForm" style="display:flex;gap:.5rem;margin-top:1rem;">
+        @Html.AntiForgeryToken()
+        <input id="message" name="message" autocomplete="off" placeholder="Type your message..." style="flex:1;padding:.5rem;border:1px solid #ccc;border-radius:4px;" />
+        <button id="sendBtn" type="submit" style="padding:.5rem 1rem;">Send</button>
+        <a href="@Url.Action("Export", "Chat", new { area = "Chats" })" class="btn" style="align-self:center;margin-left:.5rem;">Export</a>
+    </form>
+
+    <div id="status" style="margin-top:.5rem;color:#666;font-size:.9rem;"></div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const form = document.getElementById('chatForm');
+            const input = document.getElementById('message');
+            const messagesEl = document.getElementById('messages');
+            const statusEl = document.getElementById('status');
+            const askUrl = '@Url.Action("Ask", "Chat", new { area = "Chats" })';
+            const getHistoryUrl = '@Url.Action("GetHistory", "Chat", new { area = "Chats" })';
+
+            // helper to escape HTML
+            function escapeHtml(s) {
+                return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+            }
+
+            function appendMessage(role, content) {
+                const div = document.createElement('div');
+                div.className = 'message ' + role.toLowerCase();
+                div.style.marginBottom = '.6rem';
+                div.innerHTML = `<strong>${escapeHtml(role)}:</strong><div style="white-space:pre-wrap;margin-top:.25rem;">${escapeHtml(content)}</div>`;
+                messagesEl.appendChild(div);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+
+            // submit handler
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const text = input.value.trim();
+                if (!text) return;
+                // show locally immediately
+                appendMessage('User', text);
+                input.value = '';
+                statusEl.textContent = 'Thinking...';
+
+                // get antiforgery token value from the hidden input
+                const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                const token = tokenInput ? tokenInput.value : '';
+
+                // send as form-encoded so MVC model binder binds "message" correctly
+                const body = new URLSearchParams();
+                body.append('__RequestVerificationToken', token);
+                body.append('message', text);
+
+                try {
+                    const res = await fetch(askUrl, {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' },
+                        body: body
+                    });
+
+                    const data = await res.json();
+                    if (res.ok && data.ok) {
+                        appendMessage('Assistant', data.answer);
+                        statusEl.textContent = '';
+                    } else {
+                        appendMessage('System', data.error ?? 'Error from server');
+                        statusEl.textContent = 'Error: see messages.';
+                    }
+                } catch (err) {
+                    appendMessage('System', 'Network error or server unreachable.');
+                    statusEl.textContent = 'Network error.';
+                }
+            });
+
+            // optional: poll for history updates every 5s (useful if you stream server-side or multiple clients)
+            // setInterval(async () => {
+            //     try {
+            //         const r = await fetch(getHistoryUrl);
+            //         const arr = await r.json();
+            //         // naive: clear and re-render (simple)
+            //         messagesEl.innerHTML = '';
+            //         arr.forEach(m => appendMessage(m.role, m.content));
+            //     } catch { /* ignore */ }
+            // }, 5000);
+
+        })();
+    </script>
+}

@@ -1,0 +1,17 @@
+﻿.message.user {
+    background: #f0f8ff;
+    padding: .5rem;
+    border-radius: 6px;
+}
+
+.message.assistant {
+    background: #f8f8f8;
+    padding: .5rem;
+    border-radius: 6px;
+}
+
+.message.system {
+    background: #fff5e6;
+    padding: .5rem;
+    border-radius: 6px;
+}

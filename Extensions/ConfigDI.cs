@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Omni_MVC_2.Extensions.Filters;
 using Omni_MVC_2.Services;
+using Omni_MVC_2.Utilities.SemanticKernelUtilities;
 using Omni_MVC_2.Utilities.ValidatorUtilities;
 
 namespace Omni_MVC_2.Extensions
@@ -41,6 +42,9 @@ namespace Omni_MVC_2.Extensions
 
             // Add Business Layer
             services.AddBusinessLayer(configuration);
+
+            // Add Semantic Kernel
+            services.AddSemanticKernel();
 
             Console.WriteLine($"[Info]----->{nameof(RegisterServices)} service added");
             return services;
