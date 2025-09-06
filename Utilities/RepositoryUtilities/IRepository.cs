@@ -1,28 +1,45 @@
 ﻿using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 using System.Linq.Expressions;
 
-
 namespace Omni_MVC_2.Utilities.RepositoryUtilities
-
 {
-
     public interface IRepository<TEntity, PrimitiveType> where TEntity : Base<PrimitiveType>
     {
+        // Raw
+        Task<IEnumerable<TResult>> ExecuteSqlAsync<TResult>(string sql, params object[] parameters) where TResult : class;
+        Task<IEnumerable<TEntity>> ExecuteDbSetSqlAsync(string sql, params object[] parameters);
+
+        // Transaction
+        Task<IDbContextTransaction> BeginTransactionAsync(System.Data.IsolationLevel isolationLevel = System.Data.IsolationLevel.Serializable, CancellationToken cancellationToken = default);
+        Task CommitTransactionAsync(CancellationToken cancellationToken = default);
+        Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
+
+        // Add
         SetterResult Add(TEntity entity, string createdBy);
         Task<SetterResult> AddAsync(TEntity entity, string createdBy, CancellationToken cancellationToken);
+        Task<SetterResult> AddRangeAsync(IEnumerable<TEntity> entities, string createdBy, CancellationToken cancellationToken);
 
+        // Update
         SetterResult Update(TEntity entity, string updatedBy);
         Task<SetterResult> UpdateAsync(TEntity entity, string updatedBy, CancellationToken cancellationToken);
-        SetterResult UpdateMany(TEntity[] entity);
-        SetterResult UpdateOnCondition(Expression<Func<TEntity, bool>> filter, Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> setPropertyCalls);
-        Task<SetterResult> UpdateOnConditionAsync(Expression<Func<TEntity, bool>> filter, Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> setPropertyCalls, CancellationToken cancellationToken);
+        SetterResult UpdateRange(TEntity[] entities, string? updatedBy = null);
+        SetterResult UpdateMany(TEntity[] entity, string? updatedBy = null);
+        SetterResult UpdateOnCondition(Expression<Func<TEntity, bool>> filter, Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> setPropertyCalls, string? updatedBy = null);
+        Task<SetterResult> UpdateOnConditionAsync(Expression<Func<TEntity, bool>> filter, Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> setPropertyCalls, CancellationToken cancellationToken, string? updatedBy = null);
 
+        // Soft-Delete
+        SetterResult SoftDelete(TEntity entity, string updatedBy);
+        Task<SetterResult> SoftDeleteAsync(TEntity entity, string updatedBy, CancellationToken cancellationToken);
+
+        // Hard-Delete
         SetterResult Delete(TEntity entity);
         Task<SetterResult> DeleteAsync(TEntity entity, CancellationToken cancellationToken);
         SetterResult Delete(PrimitiveType id);
         Task<SetterResult> DeleteAsync(PrimitiveType id, CancellationToken cancellationToken);
         Task<SetterResult> DeleteRangeAsync(TEntity[] entities, CancellationToken cancellationToken);
 
+        // Get
         GetterResult<IEnumerable<TEntity>> Get(Expression<Func<TEntity, bool>> filter, Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy, string includeProperties = "");
         Task<GetterResult<IEnumerable<TEntity>>> GetAsync(CancellationToken cancellationToken, Expression<Func<TEntity, bool>> filter = null!, Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null!, string includeProperties = "");
         GetterResult<TEntity> GetSingle(Expression<Func<TEntity, bool>> filter, string includeProperties = "");
@@ -32,7 +49,6 @@ namespace Omni_MVC_2.Utilities.RepositoryUtilities
         GetterResult<IEnumerable<TEntity>> GetAll();
         Task<GetterResult<IEnumerable<TEntity>>> GetAllAsync(CancellationToken cancellationToken);
         GetterResult<IQueryable<TEntity>> GetQueryable();
-
         GetterResult<bool> Any(Expression<Func<TEntity, bool>> filter);
         Task<GetterResult<bool>> AnyAsync(Expression<Func<TEntity, bool>> filter, CancellationToken cancellationToken);
         GetterResult<bool> All(Expression<Func<TEntity, bool>> filter);

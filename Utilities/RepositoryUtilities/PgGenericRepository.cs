@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 using System.Linq.Expressions;
 
 namespace Omni_MVC_2.Utilities.RepositoryUtilities
@@ -8,11 +9,63 @@ namespace Omni_MVC_2.Utilities.RepositoryUtilities
     {
         protected readonly DbContext _db;
         protected readonly DbSet<TEntity> _dbSet;
+        private IDbContextTransaction? _currentTransaction;
 
         public GenericRepository(DbContext _context)
         {
             _db = _context;
             _dbSet = _db.Set<TEntity>();
+        }
+
+        public async Task<IEnumerable<TResult>> ExecuteSqlAsync<TResult>(string sql, params object[] parameters) where TResult : class
+        {
+            try
+            {
+                return await _db.Set<TResult>().FromSqlRaw(sql, parameters).ToListAsync();
+            }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException($"Error executing SQL query: {e.Message}", e);
+            }
+        }
+
+        public async Task<IEnumerable<TEntity>> ExecuteDbSetSqlAsync(string sql, params object[] parameters)
+        {
+            try
+            {
+                return await _dbSet.FromSqlRaw(sql, parameters).ToListAsync();
+            }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException($"Error executing SQL query: {e.Message}", e);
+            }
+        }
+
+        public async Task<IDbContextTransaction> BeginTransactionAsync(System.Data.IsolationLevel isolationLevel = System.Data.IsolationLevel.Serializable, CancellationToken cancellationToken = default)
+        {
+            _currentTransaction = await _db.Database.BeginTransactionAsync(isolationLevel, cancellationToken);
+            return _currentTransaction;
+        }
+
+        public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
+        {
+            if (_currentTransaction != null)
+            {
+                await _db.SaveChangesAsync(cancellationToken);
+                await _currentTransaction.CommitAsync(cancellationToken);
+                await _currentTransaction.DisposeAsync();
+                _currentTransaction = null;
+            }
+        }
+
+        public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
+        {
+            if (_currentTransaction != null)
+            {
+                await _currentTransaction.RollbackAsync(cancellationToken);
+                await _currentTransaction.DisposeAsync();
+                _currentTransaction = null;
+            }
         }
 
         public virtual SetterResult Add(TEntity entity, string createdBy)
@@ -40,6 +93,35 @@ namespace Omni_MVC_2.Utilities.RepositoryUtilities
             catch (Exception e)
             {
                 return new SetterResult() { IsException = true, Result = false, Message = e.ToString() };
+            }
+        }
+
+        public virtual async Task<SetterResult> AddRangeAsync(IEnumerable<TEntity> entities, string createdBy, CancellationToken cancellationToken)
+        {
+            try
+            {
+                foreach (var entity in entities)
+                {
+                    entity.CreateRecordStatus(createdBy);
+                }
+
+                await _dbSet.AddRangeAsync(entities, cancellationToken);
+
+                return new SetterResult
+                {
+                    IsException = false,
+                    Result = true,
+                    Message = CommonMessages.Success
+                };
+            }
+            catch (Exception ex)
+            {
+                return new SetterResult
+                {
+                    IsException = true,
+                    Result = false,
+                    Message = ex.ToString()
+                };
             }
         }
 
@@ -319,45 +401,153 @@ namespace Omni_MVC_2.Utilities.RepositoryUtilities
                 return new SetterResult() { Message = e.ToString(), Result = false, IsException = true };
             }
         }
-        public virtual SetterResult UpdateOnCondition(Expression<Func<TEntity, bool>> filter, Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> setPropertyCalls)
+
+        public SetterResult UpdateOnCondition(Expression<Func<TEntity, bool>> filter, Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> setPropertyCalls, string? updatedBy = null)
+        {
+            try
+            {
+                Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> finalSet;
+
+                if (!string.IsNullOrWhiteSpace(updatedBy))
+                {
+                    finalSet = set => setPropertyCalls.Compile().Invoke(set).SetProperty(x => x.UpdatedBy, _ => updatedBy).SetProperty(x => x.UpdatedDate, _ => DateTime.UtcNow);
+                }
+                else finalSet = setPropertyCalls;
+
+                int rowsEffected = _dbSet.Where(filter).ExecuteUpdate(finalSet);
+
+                return new SetterResult
+                {
+                    Message = $"{CommonMessages.Success}.RowsEffected:{rowsEffected}",
+                    Result = true,
+                    IsException = false
+                };
+            }
+            catch (Exception e)
+            {
+                return new SetterResult
+                {
+                    Message = e.ToString(),
+                    Result = false,
+                    IsException = true
+                };
+            }
+        }
+
+        public virtual async Task<SetterResult> UpdateOnConditionAsync(Expression<Func<TEntity, bool>> filter, Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> setPropertyCalls, CancellationToken cancellationToken, string? updatedBy = null)
         {
             try
             {
                 IQueryable<TEntity> query = _dbSet;
-                int rowsEffected = query.Where(filter).ExecuteUpdate(setPropertyCalls);
 
-                return new SetterResult() { Message = $"{CommonMessages.Success}.RowsEffected:{rowsEffected}", Result = true, IsException = false };
+                Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> finalSet;
+
+                if (!string.IsNullOrWhiteSpace(updatedBy)) finalSet = set => setPropertyCalls.Compile().Invoke(set).SetProperty(x => x.UpdatedBy, _ => updatedBy).SetProperty(x => x.UpdatedDate, _ => DateTime.UtcNow);
+                else finalSet = setPropertyCalls;
+
+                int rowsEffected = await query.Where(filter).Where(x => x.IsActive).ExecuteUpdateAsync(finalSet, cancellationToken);
+
+                return new SetterResult
+                {
+                    Message = $"{CommonMessages.Success}.RowsEffected:{rowsEffected}",
+                    Result = true,
+                    IsException = false,
+                    Data = rowsEffected
+                };
             }
             catch (Exception e)
             {
-                return new SetterResult() { Message = e.ToString(), Result = false, IsException = true };
+                return new SetterResult
+                {
+                    Message = e.ToString(),
+                    Result = false,
+                    IsException = true
+                };
             }
         }
 
-        public async virtual Task<SetterResult> UpdateOnConditionAsync(Expression<Func<TEntity, bool>> filter, Expression<Func<SetPropertyCalls<TEntity>, SetPropertyCalls<TEntity>>> setPropertyCalls, CancellationToken cancellationToken)
+        public virtual SetterResult UpdateMany(TEntity[] entities, string? updatedBy = null)
         {
             try
             {
-                IQueryable<TEntity> query = _dbSet;
-                int rowsEffected = await query.Where(filter).Where(x => x.IsActive).ExecuteUpdateAsync(setPropertyCalls, cancellationToken);
-                return new SetterResult() { Message = $"{CommonMessages.Success}.RowsEffected:{rowsEffected}", Result = true, IsException = false, Data = rowsEffected };
+                if (!string.IsNullOrWhiteSpace(updatedBy)) foreach (var entity in entities) entity.UpdateRecordStatus(updatedBy);
+
+                _dbSet.UpdateRange(entities);
+
+                return new SetterResult
+                {
+                    Message = CommonMessages.Success,
+                    Result = true,
+                    IsException = false
+                };
             }
             catch (Exception e)
             {
-                return new SetterResult() { Message = e.ToString(), Result = false, IsException = true };
+                return new SetterResult
+                {
+                    Message = e.ToString(),
+                    Result = false,
+                    IsException = true
+                };
             }
         }
 
-        public virtual SetterResult UpdateMany(TEntity[] entity)
+        public virtual SetterResult UpdateRange(TEntity[] entities, string? updatedBy = null)
         {
             try
             {
-                _dbSet.UpdateRange(entity);
-                return new SetterResult() { Message = CommonMessages.Success, Result = true, IsException = false };
+                if (!string.IsNullOrWhiteSpace(updatedBy)) foreach (var entity in entities) entity.UpdateRecordStatus(updatedBy);
+
+                _dbSet.UpdateRange(entities);
+
+                return new SetterResult
+                {
+                    Message = CommonMessages.Success,
+                    Result = true,
+                    IsException = false
+                };
             }
             catch (Exception e)
             {
-                return new SetterResult() { Message = e.ToString(), Result = false, IsException = true };
+                return new SetterResult
+                {
+                    Message = e.ToString(),
+                    Result = false,
+                    IsException = true
+                };
+            }
+        }
+
+        public virtual SetterResult SoftDelete(TEntity entity, string updatedBy)
+        {
+            try
+            {
+                if (!entity.IsActive) return new SetterResult() { IsException = true, Result = false, Message = "Cannot update inactive entity." };
+                entity.IsActive = false;
+                entity.UpdateRecordStatus(updatedBy);
+                _dbSet.Update(entity);
+                return new SetterResult() { IsException = false, Result = true, Message = CommonMessages.Success, };
+            }
+            catch (Exception e)
+            {
+                return new SetterResult() { IsException = true, Result = false, Message = e.ToString(), };
+            }
+        }
+
+        public virtual async Task<SetterResult> SoftDeleteAsync(TEntity entity, string updatedBy, CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (!entity.IsActive) return new SetterResult() { IsException = true, Result = false, Message = "Cannot update inactive entity." };
+                await Task.CompletedTask;
+                entity.IsActive = false;
+                entity.UpdateRecordStatus(updatedBy);
+                _dbSet.Update(entity);
+                return new SetterResult() { IsException = false, Result = true, Message = CommonMessages.Success, };
+            }
+            catch (Exception e)
+            {
+                return new SetterResult() { IsException = true, Result = false, Message = e.ToString(), };
             }
         }
 
@@ -365,10 +555,7 @@ namespace Omni_MVC_2.Utilities.RepositoryUtilities
         {
             try
             {
-                if (!entity.IsActive)
-                {
-                    return new SetterResult() { IsException = true, Result = false, Message = "Cannot update inactive entity." };
-                }
+                if (!entity.IsActive) return new SetterResult() { IsException = true, Result = false, Message = "Cannot update inactive entity." };
                 await Task.CompletedTask;
                 entity.UpdateRecordStatus(updatedBy);
                 _dbSet.Update(entity);
