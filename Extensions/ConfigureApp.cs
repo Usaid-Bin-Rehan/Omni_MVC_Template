@@ -14,6 +14,8 @@ namespace Omni_MVC_2.Extensions
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
+            app.UseSwagger();
+            app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API v1"); });
             app.UseSession();
             app.UseRequestLogging();
             app.UseAuthorization();

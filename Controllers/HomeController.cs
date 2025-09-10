@@ -17,16 +17,19 @@ namespace Omni_MVC_2.Controllers
             _validator = validator;
         }
 
+        [HttpGet]
         public IActionResult Index()
         {
             return View();
         }
 
+        [HttpGet]
         public IActionResult Privacy()
         {
             return View();
         }
 
+        [HttpGet]
         public IActionResult About()
         {
             string title = "About";
@@ -46,7 +49,7 @@ namespace Omni_MVC_2.Controllers
             return View(vm);
         }
 
-        [Route("Home/UserProfile/{id:int}")]
+        [HttpGet]
         public IActionResult UserProfile(int id)
         {
             // For learning purposes, just return a view model with the ID
@@ -105,11 +108,7 @@ namespace Omni_MVC_2.Controllers
         public IActionResult Dashboard()
         {
             var username = HttpContext.Session.GetString("Username");
-            if (string.IsNullOrEmpty(username))
-            {
-                return RedirectToAction("Login");
-            }
-
+            if (string.IsNullOrEmpty(username)) return RedirectToAction("Login");
             ViewData["Username"] = username;
             return View();
         }
